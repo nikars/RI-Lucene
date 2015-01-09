@@ -10,8 +10,8 @@ public class Application {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                MainWindow mainWindow = new MainWindow();
-                mainWindow.setVisible(true);
+                com.ri.Search search = new com.ri.Search();
+                search.setVisible(true);
             }
         });
     }

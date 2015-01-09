@@ -1,6 +1,5 @@
 package com.ri;
 
-import javafx.util.Pair;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.parser.AutoDetectParser;
@@ -8,6 +7,7 @@ import org.apache.tika.parser.ParseContext;
 import org.apache.tika.sax.BodyContentHandler;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
 
@@ -32,16 +32,18 @@ import java.util.Locale;
  */
 public class Photo {
     public String fileName = "";
+    public String filePath = "";
+    public String mdFilePath = "";
     public String aperture = ""; // categoria
     public Date creationDate = new Date();
     public String shutterSpeed = ""; // categoria
     public double focalLength;
-    public boolean flashFired; // categoria
+    public String flashFired = ""; // categoria
     public int iso; // categoria
     public String orientation = ""; //categoria
-    public String latitude = ""; //TODO convertir a double si hace falta
-    public String longitude = ""; //TODO convertir a double si hace falta
     public String tags = "";
+
+    public Photo() { }
 
     public Photo (File file) {
         InputStream is = null;
@@ -65,13 +67,8 @@ public class Photo {
             e.printStackTrace();
         }
 
-//        for(String field : metadata.names()) {
-//            System.out.print(field);
-//            System.out.print(" : ");
-//            System.out.println(metadata.get(field));
-//        }
-
         fileName = org.apache.commons.io.FilenameUtils.removeExtension(file.getName());
+        filePath = file.getPath();
         aperture = metadata.get("Aperture Value");
 
         try {
@@ -83,14 +80,12 @@ public class Photo {
 
         shutterSpeed = metadata.get("Shutter Speed Value");
         focalLength = Double.parseDouble(metadata.get("exif:FocalLength"));
-        flashFired =  metadata.get("exif:Flash").equals("false") ? false : true;
+        flashFired =  metadata.get("exif:Flash");
         iso = Integer.parseInt(metadata.get("ISO Speed Ratings"));
 
-        // ¿1234? Pero de dónde salen estos números?? http://www.impulseadventure.com/photo/exif-orientation.html
+        // ¿1234? http://www.impulseadventure.com/photo/exif-orientation.html
         orientation = metadata.get("tiff:Orientation").matches("[1234]") ? "horizontal" : "vertical";
 
-        latitude = metadata.get("GPS Latitude");
-        longitude = metadata.get("GPS Longitude");
         for(String field : metadata.getValues("Keywords")) {
             if (tags.equals(""))
                 tags = field;
@@ -114,6 +109,10 @@ public class Photo {
             e.appendChild(dom.createTextNode(fileName));
             rootEle.appendChild(e);
 
+            e = dom.createElement("file-path");
+            e.appendChild(dom.createTextNode(filePath));
+            rootEle.appendChild(e);
+
             e = dom.createElement("aperture");
             e.appendChild(dom.createTextNode(aperture));
             rootEle.appendChild(e);
@@ -131,7 +130,7 @@ public class Photo {
             rootEle.appendChild(e);
 
             e = dom.createElement("flash-fired");
-            e.appendChild(dom.createTextNode(((Boolean) (flashFired)).toString()));
+            e.appendChild(dom.createTextNode(flashFired));
             rootEle.appendChild(e);
 
             e = dom.createElement("iso");
@@ -141,18 +140,6 @@ public class Photo {
             e = dom.createElement("orientation");
             e.appendChild(dom.createTextNode(orientation));
             rootEle.appendChild(e);
-
-            if(latitude != null) {
-                e = dom.createElement("gps-latitude");
-                e.appendChild(dom.createTextNode(latitude));
-                rootEle.appendChild(e);
-            }
-
-            if(longitude != null) {
-                e = dom.createElement("gps-longitude");
-                e.appendChild(dom.createTextNode(longitude));
-                rootEle.appendChild(e);
-            }
 
             if(tags != null) {
                 e = dom.createElement("tags");
@@ -182,19 +169,63 @@ public class Photo {
         }
     }
 
-    public void printData() {
-        System.out.println(fileName);
-        System.out.println("  Creation Date: " + creationDate);
-        System.out.println("  Aperture: " + aperture);
-        System.out.println("  Shutter Speed: " + shutterSpeed);
-        System.out.println("  Focal Length: " + focalLength);
-        System.out.println("  Flash Fired: " + flashFired);
-        System.out.println("  ISO: " + iso);
-        System.out.println("  Orientation: " + orientation);
-        System.out.println("  Latitud GPS: " + latitude);
-        System.out.println("  Longitud GPS: " + longitude);
-        System.out.println("  Tags: " + tags);
+    public void readFromXml(String path) {
+        Document dom;
+        DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+        try {
+            DocumentBuilder db = dbf.newDocumentBuilder();
+            dom = db.parse(path);
 
-        System.out.println();
+            Element doc = dom.getDocumentElement();
+
+            fileName = getTextValue(fileName, doc, "file-name");
+            mdFilePath = path;
+            filePath = getTextValue(filePath, doc, "file-path");
+            aperture = getTextValue(aperture, doc, "aperture");
+            shutterSpeed = getTextValue(shutterSpeed, doc, "shutter-speed");
+            focalLength = Double.parseDouble(getTextValue(((Double) focalLength).toString(), doc, "focal-length"));
+            flashFired = getTextValue(flashFired, doc, "flash-fired");
+            iso = Integer.parseInt(getTextValue(((Integer)iso).toString(), doc, "iso"));
+            orientation = getTextValue(orientation, doc, "orientation");
+            tags = getTextValue(tags, doc, "tags");
+
+            SimpleDateFormat formatter = new SimpleDateFormat("EEE MMM dd HH:mm:ss Z yyyy", new Locale("us"));
+            try {
+                creationDate = formatter.parse(getTextValue(creationDate.toString(), doc, "creation-date"));
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
+
+
+        } catch (ParserConfigurationException pce) {
+            System.out.println(pce.getMessage());
+        } catch (SAXException se) {
+            System.out.println(se.getMessage());
+        } catch (IOException ioe) {
+            System.err.println(ioe.getMessage());
+        }
     }
+
+    private String getTextValue(String def, Element doc, String tag) {
+        String value = def;
+        NodeList nl;
+        nl = doc.getElementsByTagName(tag);
+        if (nl.getLength() > 0 && nl.item(0).hasChildNodes()) {
+            value = nl.item(0).getFirstChild().getNodeValue();
+        }
+        return value;
+    }
+
+//    public void printData() {
+//        System.out.println(fileName);
+//        System.out.println("  Creation Date: " + creationDate);
+//        System.out.println("  Aperture: " + aperture);
+//        System.out.println("  Shutter Speed: " + shutterSpeed);
+//        System.out.println("  Focal Length: " + focalLength);
+//        System.out.println("  Flash Fired: " + flashFired);
+//        System.out.println("  ISO: " + iso);
+//        System.out.println("  Orientation: " + orientation);
+//        System.out.println("  Tags: " + tags);
+//        System.out.println();
+//    }
 }

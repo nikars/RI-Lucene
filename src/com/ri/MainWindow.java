@@ -11,6 +11,7 @@ import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -21,7 +22,6 @@ public class MainWindow extends JFrame{
     private List<File> files = new ArrayList<File>();
     private List<Photo> photos = new ArrayList<Photo>();
 
-    private JMenuItem about;
     private JMenuItem loadFromDngMenuItem;
     private JMenuItem saveToXmlMenuItem;
     private JMenuItem loadFromXmlMenuItem;
@@ -43,18 +43,14 @@ public class MainWindow extends JFrame{
         initListeners();
         pack();
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
     }
 
     private void initMenu() {
         JMenuBar menubar  = new JMenuBar();
         JMenu collection = new JMenu("Colección");
-        JMenu index = new JMenu("Índice");
-        about = new JMenuItem("Acerca de...");
 
         collection.setMnemonic(KeyEvent.VK_C);
-        index.setMnemonic(KeyEvent.VK_I);
-        about.setMnemonic(KeyEvent.VK_A);
 
         loadFromDngMenuItem = new JMenuItem("Importar DNG...");
         saveToXmlMenuItem = new JMenuItem("Guardar en XML...");
@@ -81,7 +77,6 @@ public class MainWindow extends JFrame{
         collection.addSeparator();
         collection.add(exitMenuItem);
         menubar.add(collection);
-        menubar.add(about);
         setJMenuBar(menubar);
     }
 
@@ -93,6 +88,13 @@ public class MainWindow extends JFrame{
             }
         });
 
+        loadFromXmlMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                loadFromXml();
+            }
+        });
+
         saveToXmlMenuItem.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent event) {
@@ -100,14 +102,36 @@ public class MainWindow extends JFrame{
             }
         });
 
-        //TODO Cambiar a implementacion correcta
+        closeCollectionMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                photos.clear();
+                files.clear();
+            }
+        });
+
+        exitMenuItem.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent event) {
+                dispose();
+            }
+        });
+
         indexButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent event) {
-                for(Photo photo : photos)
-                    photo.printData();
+                indexPhotos();
             }
         });
+    }
+
+    private void indexPhotos(){
+        try {
+            Index index = new Index(openDirectory().getPath());
+            index.indexDocs(photos);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void saveToXml() {
@@ -115,6 +139,7 @@ public class MainWindow extends JFrame{
         infoLabel.setText("");
         infoLabel.setEnabled(true);
         infoLabel.setForeground(Color.decode("#006699"));
+        loadingBar.setValue(0);
 
         XmlSaver xs = new XmlSaver(openDirectory().getPath(), infoLabel);
         xs.addPropertyChangeListener(new PropertyChangeListener() {
@@ -139,11 +164,42 @@ public class MainWindow extends JFrame{
         xs.execute();
     }
 
+    private void loadFromXml() {
+        indexButton.setEnabled(false);
+        infoLabel.setText("");
+        infoLabel.setEnabled(true);
+        infoLabel.setForeground(Color.decode("#006699"));
+        loadingBar.setValue(0);
+
+        XmlLoader xl = new XmlLoader(openDirectory(), infoLabel);
+        xl.addPropertyChangeListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                String name = evt.getPropertyName();
+                if (name.equals("progress")) {
+                    int progress = (Integer) evt.getNewValue();
+                    loadingBar.setValue(progress);
+                }
+                else if(name.equals("state")) {
+                    SwingWorker.StateValue state = (SwingWorker.StateValue) evt.getNewValue();
+                    switch (state) {
+                        case DONE:
+                            indexButton.setEnabled(true);
+                            infoLabel.setText(files.size() + " Fotografías cargadas.");
+                            break;
+                    }
+                }
+            }
+        });
+        xl.execute();
+    }
+
     private void importPhotos() {
         indexButton.setEnabled(false);
         infoLabel.setText("");
         infoLabel.setEnabled(true);
         infoLabel.setForeground(Color.decode("#006699"));
+        loadingBar.setValue(0);
 
         ProgressWorker pw = new ProgressWorker(openDirectory(), infoLabel);
         pw.addPropertyChangeListener(new PropertyChangeListener() {
@@ -214,6 +270,67 @@ public class MainWindow extends JFrame{
                     photo.saveToXml(path);
                 }
             }
+        }
+    }
+
+    public class XmlLoader extends SwingWorker<Void, String> {
+        File directory;
+        JLabel infoLabel;
+
+        public XmlLoader(File directory, JLabel infoLabel) {
+            this.directory = directory;
+            this.infoLabel = infoLabel;
+        }
+
+        @Override
+        protected Void doInBackground() throws Exception {
+            loadFromXml(directory);
+            return null;
+        }
+
+        @Override
+        protected void process(List<String> chunks) {
+            for(String chunk : chunks)
+                infoLabel.setText(chunk);
+        }
+
+        @Override
+        protected void done() {
+            indexButton.setEnabled(true);
+            loadingBar.setValue(100);
+        }
+
+        private void loadFromXml(File directory) {
+            files.clear();
+            photos.clear();
+
+            if(directory != null) {
+                addXmlFiles(directory);
+
+                float count = 1;
+                for (File file : files) {
+                    Photo photo = new Photo();
+                    photo.readFromXml(file.getPath());
+                    photos.add(photo);
+
+                    publish("Procesando " + file.getName());
+                    setProgress((int) ((count / files.size()) * 100));
+                    count ++;
+                }
+            }
+        }
+
+        @SuppressWarnings("ConstantConditions")
+        private void addXmlFiles(File directory) {
+            if(directory != null) {
+                for (File fileEntry : directory.listFiles()) {
+                    if (fileEntry.isDirectory())
+                        addXmlFiles(fileEntry);
+                    else if(FilenameUtils.getExtension(fileEntry.getName()).matches("(?i)xml"))
+                        files.add(fileEntry);
+                }
+            }
+            else infoLabel.setText("Error al abrir el directorio.");
         }
     }
 
