@@ -34,8 +34,7 @@ public class Index {
     // Contructor de la clase Index
     public Index(String indexLocation) throws IOException {
         Map<String, Analyzer> analyzerPerField = new HashMap<String, Analyzer>();
-        analyzerPerField.put("tags", new KeywordAnalyzer());
-
+        analyzerPerField.put("tags", new StandardAnalyzer());
         PerFieldAnalyzerWrapper aWrapper = new PerFieldAnalyzerWrapper(new WhitespaceAnalyzer(), analyzerPerField);
 
         Directory dir = FSDirectory.open(new File(indexLocation));

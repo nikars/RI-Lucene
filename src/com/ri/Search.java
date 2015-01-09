@@ -36,6 +36,13 @@ public class Search extends JFrame {
     private JList resultList;
     private JTextPane mdPane;
     private JButton launchViewerButton;
+    private JComboBox apertureCB;
+    private JComboBox ssCb;
+    private JComboBox flCb;
+    private JComboBox flashCb;
+    private JComboBox isoCb;
+    private JComboBox orientationCb;
+    private JComboBox tagsCb;
     private DefaultListModel listModel;
     private Map<String, String> currentResultsMd = new HashMap<String, String>();
     private Map<String, String> currentResultsPhoto = new HashMap<String, String>();
@@ -53,11 +60,25 @@ public class Search extends JFrame {
     private void initGui() {
         setContentPane(rootPanel);
         initMenu();
+        initRadioButtons();
         initListeners();
         pack();
         setSize(800, 600);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+    }
+
+    private void initRadioButtons() {
+        flashNoRadioButton.setSelected(true);
+        horizontalRadioButton.setSelected(true);
+
+        ButtonGroup flash = new ButtonGroup();
+        flash.add(flashNoRadioButton);
+        flash.add(flashYesRadioButton);
+
+        ButtonGroup orientation = new ButtonGroup();
+        orientation.add(horizontalRadioButton);
+        orientation.add(verticalRadioButton);
     }
 
     private void initMenu() {
@@ -124,7 +145,7 @@ public class Search extends JFrame {
             @Override
             public void actionPerformed(ActionEvent event) {
                 try {
-                    List<Document> results = qEngine.tagQuery(tagsField.getText().toString());
+                    List<Document> results = qEngine.runQuery(buildQuery());
                     listModel.clear();
 
                     if(results != null && !results.isEmpty()) {
@@ -215,5 +236,27 @@ public class Search extends JFrame {
         listModel = new DefaultListModel();
         listModel.addElement("");
         resultList = new JList(listModel);
+    }
+
+    private Query buildQuery() {
+        Query query = new Query();
+        query.aperture = apertureField.getText();
+        query.shutSpeed = ssField.getText();
+        query.focalLength = Double.parseDouble(flField.getText());
+        query.date = dateField.getText();
+        query.iso = Integer.parseInt(isoField.getText());
+        query.flash = flashNoRadioButton.isSelected() ? "false" : "true";
+        query.orientation = horizontalRadioButton.isSelected() ? "horizontal" : "vertical";
+        query.tags = tagsField.getText();
+
+        query.apertureOp = apertureCB.getSelectedItem().toString();
+        query.ssOp = ssCb.getSelectedItem().toString();
+        query.flOp = flCb.getSelectedItem().toString();
+        query.isoOp = isoCb.getSelectedItem().toString();
+        query.flashOp = flashCb.getSelectedItem().toString();
+        query.orientOp = orientationCb.getSelectedItem().toString();
+        query.tagOp = tagsCb.getSelectedItem().toString();
+
+        return query;
     }
 }

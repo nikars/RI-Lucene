@@ -1,11 +1,14 @@
 package com.ri;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Term;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
 import org.apache.lucene.store.Directory;
@@ -16,8 +19,7 @@ import org.apache.lucene.util.Version;
 import java.io.File;
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by Nikolai on 19/12/2014.
@@ -32,13 +34,16 @@ public class QueryEngine {
         searcher = new IndexSearcher(reader);
     }
 
-    public List<Document> tagQuery(String queryTerm) throws IOException {
+    public List<Document> runQuery(Query queryTerm) throws IOException {
         List<Document> returnedDocuments = new ArrayList<Document>();
-        Analyzer analyzer = new WhitespaceAnalyzer();
-        QueryParser parser = new QueryParser("tags", analyzer);
+        Map<String, Analyzer> analyzerPerField = new HashMap<String, Analyzer>();
+        analyzerPerField.put("tags", new StandardAnalyzer());
+        PerFieldAnalyzerWrapper aWrapper = new PerFieldAnalyzerWrapper(new WhitespaceAnalyzer(), analyzerPerField);
+        QueryParser parser = new QueryParser("tags", aWrapper);
 
         try {
-            Query query = parser.parse(queryTerm);
+            System.out.println(queryTerm.compose());
+            org.apache.lucene.search.Query query = parser.parse(queryTerm.compose());
             TopScoreDocCollector collector = TopScoreDocCollector.create(hitsPerPage, true);
             searcher.search(query, collector);
             ScoreDoc[] hits = collector.topDocs().scoreDocs;
