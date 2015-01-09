@@ -32,13 +32,13 @@ import java.util.Locale;
  */
 public class Photo {
     public String fileName = "";
-    public String aperture = "";
+    public String aperture = ""; // categoria
     public Date creationDate = new Date();
-    public String shutterSpeed = "";
+    public String shutterSpeed = ""; // categoria
     public double focalLength;
-    public boolean flashFired;
-    public int iso;
-    public String orientation = "";
+    public boolean flashFired; // categoria
+    public int iso; // categoria
+    public String orientation = ""; //categoria
     public String latitude = ""; //TODO convertir a double si hace falta
     public String longitude = ""; //TODO convertir a double si hace falta
     public String tags = "";
