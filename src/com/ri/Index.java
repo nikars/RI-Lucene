@@ -1,14 +1,12 @@
 package com.ri;
 
-
-import org.apache.log4j.lf5.viewer.categoryexplorer.CategoryPath;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.core.KeywordAnalyzer;
 import org.apache.lucene.analysis.core.WhitespaceAnalyzer;
 import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
-import org.apache.lucene.document.TextField;
+import org.apache.lucene.facet.FacetField;
+import org.apache.lucene.facet.FacetsConfig;
 import org.apache.lucene.facet.taxonomy.TaxonomyWriter;
 import org.apache.lucene.facet.taxonomy.directory.DirectoryTaxonomyWriter;
 import org.apache.lucene.index.IndexWriter;
@@ -17,9 +15,10 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.Version;
 
-import java.awt.*;
-import java.io.*;
-import java.util.ArrayList;
+import java.io.File;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,31 +29,44 @@ import java.util.Map;
  */
 public class Index {
     private IndexWriter writer;
+    private TaxonomyWriter taxo;
+    private final FacetsConfig config = new FacetsConfig();
+
 
     // Contructor de la clase Index
     public Index(String indexLocation) throws IOException {
+        File taxoDir = new File(indexLocation + "\\taxo");
+        if (!taxoDir.exists()) {
+            System.out.println("creating directory: taxo");
+            try {
+                taxoDir.mkdir();
+            } catch (SecurityException se) {
+            }
+        }
+
         Map<String, Analyzer> analyzerPerField = new HashMap<String, Analyzer>();
         analyzerPerField.put("tags", new StandardAnalyzer());
         PerFieldAnalyzerWrapper aWrapper = new PerFieldAnalyzerWrapper(new WhitespaceAnalyzer(), analyzerPerField);
 
         Directory dir = FSDirectory.open(new File(indexLocation));
+        Directory dirTaxo = FSDirectory.open(taxoDir);
         IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_4_10_2, aWrapper);
+        taxo = new DirectoryTaxonomyWriter(dirTaxo, IndexWriterConfig.OpenMode.CREATE);
         config.setOpenMode(IndexWriterConfig.OpenMode.CREATE);
         writer = new IndexWriter(dir, config);
     }
 
     public void indexDocs(List<Photo> photos) throws IOException {
-        for(Photo photo : photos){
+        for (Photo photo : photos) {
             Document docPhoto = buildPhotoDoc(photo);
-            writer.addDocument(docPhoto);
+            writer.addDocument(config.build(taxo, docPhoto));
         }
         writer.close();
+        taxo.close();
     }
 
     private Document buildPhotoDoc(Photo photo) {
         Document docPhoto = new Document();
-//        TaxonomyWriter writertaxo = new DirectoryTaxonomyWriter(taxoDir, IndexWriterConfig.OpenMode.CREATE); // se usa?
-//        FacetFields facetFields = new FacetFields(writertaxo);
 
         //Ruta al archivo de la photo
         Field pathField = new StringField("path", photo.filePath, Field.Store.YES);
@@ -65,53 +77,39 @@ public class Index {
         docPhoto.add(mdPathField);
 
         //Otros campos
-        docPhoto.add(new LongField("created", photo.creationDate.getTime(), Field.Store.NO));
-        docPhoto.add(new TextField("aperture", photo.aperture, Field.Store.NO));
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(photo.creationDate);
+
+        docPhoto.add(new StringField("date", new SimpleDateFormat("dd/MM/yyyy").format(cal.getTime()), Field.Store.NO));
+        docPhoto.add(new TextField("month", new SimpleDateFormat("MMMM").format(cal.getTime()), Field.Store.NO));
+        docPhoto.add(new StringField("year", new SimpleDateFormat("yyyy").format(cal.getTime()), Field.Store.NO));
+
+        docPhoto.add(new StringField("aperture", photo.aperture, Field.Store.NO));
         docPhoto.add(new TextField("shutSpeed", photo.shutterSpeed, Field.Store.NO));
         docPhoto.add(new DoubleField("focalLength", photo.focalLength, Field.Store.NO));
-        docPhoto.add(new TextField("flash", photo.flashFired, Field.Store.NO));
+        docPhoto.add(new StringField("flash", photo.flashFired, Field.Store.NO));
         docPhoto.add(new IntField("iso", photo.iso, Field.Store.NO));
-        docPhoto.add(new TextField("orientation", photo.orientation, Field.Store.NO));
         docPhoto.add(new TextField("tags", photo.tags, Field.Store.NO));
 
-        // Creamos Categorias
-//        CathegoryPath cathegory = new CathegoryPath(,);
-//
-//        categories.add(cathegory);
-//        writertaxo.addCategory(cathegory);
-//        List<CategoryPath> categories = new ArrayList<CategoryPath>();
-//        categories.add(new CategoryPath("aperture", )); // faltan los tipos de apertura
-//        categories.add(new CategoryPath("shutterSpeed", )); // faltan los tipos de velocidad
-//        categories.add(new CategoryPath("flashFired", "yes"));
-//        categories.add(new CategoryPath("iso", )); // falta tipos iso
-//        categories.add(new CategoryPath("orientation", "horizontal"));
-//
-//        DocumentBuilder categoryPhotoBuilder = new CategoryDocumentBuilder(wrytaxo);
-//        categoryPhotoBuilderBuilder.setCategoryPaths(categories);
-//        categoryPhotoBuilder.build(docPhoto);
+        //Facetas
+        if (!photo.aperture.isEmpty())
+            docPhoto.add(new FacetField("apertureCat", photo.aperture));
+
+        if (!photo.shutterSpeed.isEmpty())
+            docPhoto.add(new FacetField("shutSpeedCat", photo.shutterSpeed));
+
+        if (photo.focalLength != 0)
+            docPhoto.add(new FacetField("focalLengthCat", ((Double) photo.focalLength).toString()));
+
+        if (photo.iso != 0)
+            docPhoto.add(new FacetField("isoCat", ((Integer) photo.iso).toString()));
+
+        if (!photo.flashFired.isEmpty())
+            docPhoto.add(new FacetField("flashCat", photo.flashFired));
+
+        if (!photo.orientation.isEmpty())
+            docPhoto.add(new FacetField("orientationCat", photo.orientation));
 
         return docPhoto;
     }
 }
-
-
-
-//    // Indexamos documentos
-//
-//    private void indexPhotos(Photo photo) throws Exception {
-//        // Indexamos fotos
-//        for (Photo photos : photo) {
-//            Document docPhoto = getPhoto(photo);
-//
-//            facetFields.addFields(docPhoto, categories);
-//            writer.addDocument(docPhoto);
-//            System.out.println("Added: " + Photo.fileName);
-//            numDocs++;
-//
-//        }
-//        writer.numDocs();
-//        writer.optimize();
-//
-//    }
-//
-//    int orignalNPhotos = writer.numDocs(); // Lo inicializamos a 0 para ir sumando los documentos?

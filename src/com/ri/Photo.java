@@ -37,15 +37,16 @@ public class Photo {
     public String aperture = ""; // categoria
     public Date creationDate = new Date();
     public String shutterSpeed = ""; // categoria
-    public double focalLength;
+    public double focalLength; // categoria
     public String flashFired = ""; // categoria
     public int iso; // categoria
     public String orientation = ""; //categoria
     public String tags = "";
 
-    public Photo() { }
+    public Photo() {
+    }
 
-    public Photo (File file) {
+    public Photo(File file) {
         InputStream is = null;
         try {
             is = new FileInputStream(file);
@@ -80,13 +81,13 @@ public class Photo {
 
         shutterSpeed = metadata.get("Shutter Speed Value");
         focalLength = Double.parseDouble(metadata.get("exif:FocalLength"));
-        flashFired =  metadata.get("exif:Flash");
+        flashFired = metadata.get("exif:Flash");
         iso = Integer.parseInt(metadata.get("ISO Speed Ratings"));
 
         // ¿1234? http://www.impulseadventure.com/photo/exif-orientation.html
         orientation = metadata.get("tiff:Orientation").matches("[1234]") ? "horizontal" : "vertical";
 
-        for(String field : metadata.getValues("Keywords")) {
+        for (String field : metadata.getValues("Keywords")) {
             if (tags.equals(""))
                 tags = field;
             else
@@ -126,7 +127,7 @@ public class Photo {
             rootEle.appendChild(e);
 
             e = dom.createElement("focal-length");
-            e.appendChild(dom.createTextNode(((Double)focalLength).toString()));
+            e.appendChild(dom.createTextNode(((Double) focalLength).toString()));
             rootEle.appendChild(e);
 
             e = dom.createElement("flash-fired");
@@ -134,14 +135,14 @@ public class Photo {
             rootEle.appendChild(e);
 
             e = dom.createElement("iso");
-            e.appendChild(dom.createTextNode(((Integer)iso).toString()));
+            e.appendChild(dom.createTextNode(((Integer) iso).toString()));
             rootEle.appendChild(e);
 
             e = dom.createElement("orientation");
             e.appendChild(dom.createTextNode(orientation));
             rootEle.appendChild(e);
 
-            if(tags != null) {
+            if (tags != null) {
                 e = dom.createElement("tags");
                 e.appendChild(dom.createTextNode(tags));
                 rootEle.appendChild(e);
@@ -185,7 +186,7 @@ public class Photo {
             shutterSpeed = getTextValue(shutterSpeed, doc, "shutter-speed");
             focalLength = Double.parseDouble(getTextValue(((Double) focalLength).toString(), doc, "focal-length"));
             flashFired = getTextValue(flashFired, doc, "flash-fired");
-            iso = Integer.parseInt(getTextValue(((Integer)iso).toString(), doc, "iso"));
+            iso = Integer.parseInt(getTextValue(((Integer) iso).toString(), doc, "iso"));
             orientation = getTextValue(orientation, doc, "orientation");
             tags = getTextValue(tags, doc, "tags");
 
@@ -215,17 +216,4 @@ public class Photo {
         }
         return value;
     }
-
-//    public void printData() {
-//        System.out.println(fileName);
-//        System.out.println("  Creation Date: " + creationDate);
-//        System.out.println("  Aperture: " + aperture);
-//        System.out.println("  Shutter Speed: " + shutterSpeed);
-//        System.out.println("  Focal Length: " + focalLength);
-//        System.out.println("  Flash Fired: " + flashFired);
-//        System.out.println("  ISO: " + iso);
-//        System.out.println("  Orientation: " + orientation);
-//        System.out.println("  Tags: " + tags);
-//        System.out.println();
-//    }
 }

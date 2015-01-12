@@ -1,6 +1,5 @@
 package com.ri;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
 import javax.swing.*;
@@ -16,9 +15,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Procesador de metadatos
+ * Herramienta de gestión del índice
  */
-public class MainWindow extends JFrame{
+public class IndexTool extends JFrame {
     private List<File> files = new ArrayList<File>();
     private List<Photo> photos = new ArrayList<Photo>();
 
@@ -32,8 +31,8 @@ public class MainWindow extends JFrame{
     private JLabel infoLabel;
     private JProgressBar loadingBar;
 
-    public MainWindow() {
-        super("Recuperación de Información. Práctica 3: Lucene");
+    public IndexTool() {
+        super("Herramienta del índice");
         initGui();
     }
 
@@ -47,7 +46,7 @@ public class MainWindow extends JFrame{
     }
 
     private void initMenu() {
-        JMenuBar menubar  = new JMenuBar();
+        JMenuBar menubar = new JMenuBar();
         JMenu collection = new JMenu("Colección");
 
         collection.setMnemonic(KeyEvent.VK_C);
@@ -125,10 +124,13 @@ public class MainWindow extends JFrame{
         });
     }
 
-    private void indexPhotos(){
+    private void indexPhotos() {
         try {
+            indexButton.setEnabled(false);
             Index index = new Index(openDirectory().getPath());
             index.indexDocs(photos);
+            indexButton.setEnabled(true);
+            infoLabel.setText("Índice creado.");
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -149,8 +151,7 @@ public class MainWindow extends JFrame{
                 if (name.equals("progress")) {
                     int progress = (Integer) evt.getNewValue();
                     loadingBar.setValue(progress);
-                }
-                else if(name.equals("state")) {
+                } else if (name.equals("state")) {
                     SwingWorker.StateValue state = (SwingWorker.StateValue) evt.getNewValue();
                     switch (state) {
                         case DONE:
@@ -179,8 +180,7 @@ public class MainWindow extends JFrame{
                 if (name.equals("progress")) {
                     int progress = (Integer) evt.getNewValue();
                     loadingBar.setValue(progress);
-                }
-                else if(name.equals("state")) {
+                } else if (name.equals("state")) {
                     SwingWorker.StateValue state = (SwingWorker.StateValue) evt.getNewValue();
                     switch (state) {
                         case DONE:
@@ -209,8 +209,7 @@ public class MainWindow extends JFrame{
                 if (name.equals("progress")) {
                     int progress = (Integer) evt.getNewValue();
                     loadingBar.setValue(progress);
-                }
-                else if(name.equals("state")) {
+                } else if (name.equals("state")) {
                     SwingWorker.StateValue state = (SwingWorker.StateValue) evt.getNewValue();
                     switch (state) {
                         case DONE:
@@ -253,7 +252,7 @@ public class MainWindow extends JFrame{
 
         @Override
         protected void process(List<String> chunks) {
-            for(String chunk : chunks)
+            for (String chunk : chunks)
                 infoLabel.setText(chunk);
         }
 
@@ -264,7 +263,7 @@ public class MainWindow extends JFrame{
         }
 
         private void saveToXml(String path) {
-            if(photos != null) {
+            if (photos != null) {
                 for (Photo photo : photos) {
                     publish("Guardando " + photo.fileName);
                     photo.saveToXml(path);
@@ -290,7 +289,7 @@ public class MainWindow extends JFrame{
 
         @Override
         protected void process(List<String> chunks) {
-            for(String chunk : chunks)
+            for (String chunk : chunks)
                 infoLabel.setText(chunk);
         }
 
@@ -304,7 +303,7 @@ public class MainWindow extends JFrame{
             files.clear();
             photos.clear();
 
-            if(directory != null) {
+            if (directory != null) {
                 addXmlFiles(directory);
 
                 float count = 1;
@@ -315,22 +314,21 @@ public class MainWindow extends JFrame{
 
                     publish("Procesando " + file.getName());
                     setProgress((int) ((count / files.size()) * 100));
-                    count ++;
+                    count++;
                 }
             }
         }
 
         @SuppressWarnings("ConstantConditions")
         private void addXmlFiles(File directory) {
-            if(directory != null) {
+            if (directory != null) {
                 for (File fileEntry : directory.listFiles()) {
                     if (fileEntry.isDirectory())
                         addXmlFiles(fileEntry);
-                    else if(FilenameUtils.getExtension(fileEntry.getName()).matches("(?i)xml"))
+                    else if (FilenameUtils.getExtension(fileEntry.getName()).matches("(?i)xml"))
                         files.add(fileEntry);
                 }
-            }
-            else infoLabel.setText("Error al abrir el directorio.");
+            } else infoLabel.setText("Error al abrir el directorio.");
         }
     }
 
@@ -345,7 +343,7 @@ public class MainWindow extends JFrame{
 
         @Override
         protected void process(List<String> chunks) {
-            for(String chunk : chunks)
+            for (String chunk : chunks)
                 label.setText(chunk);
         }
 
@@ -365,7 +363,7 @@ public class MainWindow extends JFrame{
             files.clear();
             photos.clear();
 
-            if(directory != null) {
+            if (directory != null) {
                 addDngFiles(directory);
 
                 float count = 1;
@@ -374,22 +372,21 @@ public class MainWindow extends JFrame{
 
                     publish("Procesando " + file.getName());
                     setProgress((int) ((count / files.size()) * 100));
-                    count ++;
+                    count++;
                 }
             }
         }
 
         @SuppressWarnings("ConstantConditions")
         private void addDngFiles(File directory) {
-            if(directory != null) {
+            if (directory != null) {
                 for (File fileEntry : directory.listFiles()) {
                     if (fileEntry.isDirectory())
                         addDngFiles(fileEntry);
-                    else if(FilenameUtils.getExtension(fileEntry.getName()).matches("(?i)dng"))
+                    else if (FilenameUtils.getExtension(fileEntry.getName()).matches("(?i)dng"))
                         files.add(fileEntry);
                 }
-            }
-            else infoLabel.setText("Error al abrir el directorio.");
+            } else infoLabel.setText("Error al abrir el directorio.");
         }
     }
 }
